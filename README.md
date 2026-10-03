@@ -1,2 +1,2 @@
-# jogo-t-tico
+# jogo-tático
 jogo-tático
