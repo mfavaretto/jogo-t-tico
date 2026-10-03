@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Jogo Tático - Etapa 1</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <canvas id="jogo"></canvas>
+
+  <!-- HUD (interface) -->
+  <div id="hud" class="oculto">
+    <div id="mira"><span></span><span></span><span></span><span></span></div>
+    <div id="marcador-acerto"></div>
+    <div id="hud-vida"><small>VIDA</small><b id="vida-valor">100</b></div>
+    <div id="hud-municao"><small id="municao-estado">PISTOLA</small><b><span id="municao-atual">12</span><em> / </em><span id="municao-reserva">36</span></b></div>
+    <div id="hud-alvos">Alvos: <span id="alvos-restantes">0</span></div>
+  </div>
+
+  <!-- Tela inicial / pausa -->
+  <div id="menu">
+    <h1>JOGO TÁTICO</h1>
+    <p>Etapa 1 &mdash; mapa de teste</p>
+    <button id="btn-jogar">Clique para jogar</button>
+    <ul>
+      <li><kbd>W A S D</kbd> mover</li>
+      <li><kbd>Mouse</kbd> olhar &nbsp; <kbd>Botão esq.</kbd> atirar</li>
+      <li><kbd>Espaço</kbd> pular &nbsp; <kbd>Ctrl</kbd>/<kbd>C</kbd> agachar</li>
+      <li><kbd>Shift</kbd> andar devagar &nbsp; <kbd>R</kbd> recarregar</li>
+      <li><kbd>Esc</kbd> pausar</li>
+    </ul>
+  </div>
+
+  <!-- Three.js (CDN cdnjs, versão global) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="js/mapa.js"></script>
+  <script src="js/alvos.js"></script>
+  <script src="js/armas.js"></script>
+  <script src="js/jogador.js"></script>
+  <script src="js/hud.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

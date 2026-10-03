@@ -1,0 +1,38 @@
+/* Estilos básicos: tela, HUD e menu */
+html, body { margin: 0; height: 100%; overflow: hidden; background: #111; font-family: system-ui, Arial, sans-serif; }
+#jogo { display: block; width: 100%; height: 100%; }
+.oculto { display: none !important; }
+
+#hud { position: fixed; inset: 0; pointer-events: none; color: #fff; text-shadow: 0 0 4px #000; }
+
+/* Mira central: quatro traços com espaço no meio */
+#mira { position: absolute; left: 50%; top: 50%; width: 0; height: 0; }
+#mira span { position: absolute; background: #0f0; box-shadow: 0 0 2px #000; }
+#mira span:nth-child(1) { width: 2px; height: 8px; left: -1px; top: -13px; }
+#mira span:nth-child(2) { width: 2px; height: 8px; left: -1px; top: 5px; }
+#mira span:nth-child(3) { width: 8px; height: 2px; left: -13px; top: -1px; }
+#mira span:nth-child(4) { width: 8px; height: 2px; left: 5px; top: -1px; }
+#mira.tiro { transform: scale(1.5); }
+
+/* X vermelho ao acertar um alvo */
+#marcador-acerto { position: absolute; left: 50%; top: 50%; width: 18px; height: 18px; margin: -9px 0 0 -9px;
+  opacity: 0; transition: opacity .15s; background:
+  linear-gradient(45deg, transparent 45%, #f33 45%, #f33 55%, transparent 55%),
+  linear-gradient(-45deg, transparent 45%, #f33 45%, #f33 55%, transparent 55%); }
+#marcador-acerto.ativo { opacity: 1; transition: none; }
+
+#hud-vida, #hud-municao { position: absolute; bottom: 24px; padding: 8px 16px; background: rgba(0,0,0,.45); border-radius: 6px; }
+#hud-vida { left: 24px; }
+#hud-municao { right: 24px; text-align: right; }
+#hud small { display: block; font-size: 11px; letter-spacing: 2px; opacity: .8; }
+#hud b { font-size: 36px; }
+#hud em { font-style: normal; opacity: .6; font-size: 24px; }
+#hud-municao.vazia b { color: #f55; }
+#hud-alvos { position: absolute; top: 16px; right: 20px; font-size: 14px; }
+
+#menu { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  background: rgba(0,0,0,.75); color: #eee; text-align: center; }
+#menu h1 { margin: 0; letter-spacing: 6px; }
+#menu button { margin: 20px 0; padding: 12px 28px; font-size: 18px; cursor: pointer; border: 0; border-radius: 6px; background: #3a8; color: #fff; }
+#menu ul { list-style: none; padding: 0; line-height: 2; }
+kbd { background: #333; border: 1px solid #666; border-radius: 4px; padding: 1px 6px; font-size: 13px; }
