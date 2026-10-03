@@ -74,14 +74,14 @@ class Mapa {
 
   _criarCaixas() {
     const madeira = 0xb5854a, metal = 0x5d7a8c;
-    this.adicionarBloco(4, -10, 2, 2, 1.2, madeira);      // baixa (dá para pular em cima)
+    this.adicionarBloco(4, -10, 2, 2, 1.0, madeira);      // baixa (dá para pular em cima)
     this.adicionarBloco(6.2, -10, 2, 2, 2.4, madeira);    // alta
-    this.adicionarBloco(-12, 8, 3, 1.5, 1.2, metal);
+    this.adicionarBloco(-12, 8, 3, 1.5, 1.0, metal);
     this.adicionarBloco(-4, 10, 2, 2, 2.2, metal);
     this.adicionarBloco(0, 0, 2.5, 2.5, 1.5, madeira);    // centro do mapa
     this.adicionarBloco(14, -4, 1.5, 4, 2.2, metal);
     this.adicionarBloco(-14, -12, 2, 2, 1.0, madeira);
-    this.adicionarBloco(12, 12, 2, 2, 1.2, madeira);
-    this.adicionarBloco(12, 12, 1.2, 1.2, 1.0, metal, 1.2); // caixa empilhada
+    this.adicionarBloco(12, 12, 2, 2, 1.0, madeira);
+    this.adicionarBloco(12, 12, 1.2, 1.2, 1.0, metal, 1.0); // caixa empilhada
   }
 }

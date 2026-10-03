@@ -51,6 +51,8 @@
     if (!jogador.ativo) jogador.atirando = false;
   });
 
+  window.jogo = { jogador, arma, alvos, mapa, camera };   // útil para depurar no console
+
   // Laço principal
   let ultimo = performance.now();
   function laco(agora) {
