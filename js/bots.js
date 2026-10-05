@@ -7,11 +7,50 @@
 //    e quando o jogador está em movimento ou agachado.
 // O controle de rodadas fica em rodadas.js; aqui só há criação, IA e combate.
 
+// ======================================================================
+// >>> DIFICULDADE: troque aqui para 'facil', 'medio' ou 'dificil'.
+//     (O menu do jogo também altera esta variável antes de começar.)
+// ======================================================================
+let DIFICULDADE = 'medio';
+
+// Ajustes por nível: tempo de reação, precisão, dano, visão, velocidade e audição
+const NIVEIS_DIFICULDADE = {
+  facil: {
+    nome: 'Fácil',
+    reacaoMin: 0.9, reacaoExtra: 0.5,           // segundos entre ver o jogador e o 1º tiro
+    chance: 0.45, chanceDist: 0.02, chanceMin: 0.08, chanceMax: 0.35,   // precisão: base, perda por metro, mínimo e máximo
+    dano: 6, intervaloMin: 1.3, intervaloExtra: 0.8,                     // dano por tiro e tempo entre tiros
+    alcanceVisao: 28, fov: 0.5,                 // distância de visão e cosseno do meio-campo de visão (0,5 = 120° no total)
+    velocidade: 2.1, audicao: 0.6,              // velocidade em combate e multiplicador do alcance de audição
+  },
+  medio: {
+    nome: 'Médio',
+    reacaoMin: 0.55, reacaoExtra: 0.35,
+    chance: 0.62, chanceDist: 0.02, chanceMin: 0.12, chanceMax: 0.5,
+    dano: 8, intervaloMin: 0.9, intervaloExtra: 0.6,
+    alcanceVisao: 35, fov: 0.5,
+    velocidade: 2.6, audicao: 1.0,
+  },
+  dificil: {
+    nome: 'Difícil',
+    reacaoMin: 0.3, reacaoExtra: 0.2,
+    chance: 0.72, chanceDist: 0.017, chanceMin: 0.15, chanceMax: 0.55,
+    dano: 9, intervaloMin: 0.7, intervaloExtra: 0.5,
+    alcanceVisao: 45, fov: 0.3,
+    velocidade: 3.0, audicao: 1.4,
+  },
+};
+function definirDificuldade(nome) { if (NIVEIS_DIFICULDADE[nome]) DIFICULDADE = nome; }
+
+const NOMES_BOTS = ['Alfa', 'Bravo', 'Charlie', 'Delta', 'Eco', 'Foxtrot'];
+const ARMAS_BOTS = ['FUZIL TÁTICO', 'SMG', 'PISTOLA', 'FUZIL TÁTICO'];   // só para o kill feed
+
 class Bots {
-  constructor(scene, mapa, jogador) {
+  constructor(scene, mapa, jogador, hud) {
     this.scene = scene;
     this.mapa = mapa;
     this.jogador = jogador;
+    this.hud = hud;
     this.aoAbate = null;             // callback(bot) quando o jogador elimina um bot
 
     this.lista = [];                 // bots vivos
@@ -19,12 +58,10 @@ class Bots {
     this.mortos = [];                // bots caindo (animação de morte)
     this.ativo = false;              // false = congelados (preparação / resultado)
 
-    // Ajustes de dificuldade
     this.vidaBot = 100;
-    this.danoBot = 8;
-    this.alcanceVisao = 35;
-    this.reacaoMin = 0.55;           // segundos entre ver o jogador e o primeiro tiro
-    this.reacaoExtra = 0.35;
+    this.respawnAtivo = false;       // mata-mata: bots mortos reaparecem
+    this.tempoRespawn = 4;
+    this.fila = [];                  // bots esperando para reaparecer
 
     this.raycaster = new THREE.Raycaster();
     this._a = new THREE.Vector3();
@@ -33,6 +70,8 @@ class Bots {
     this._criarTracos();
     this._criarGrafo();
   }
+
+  get nv() { return NIVEIS_DIFICULDADE[DIFICULDADE]; }
 
   // ---------- Navegação (grafo de pontos + A*) ----------
 
@@ -153,7 +192,7 @@ class Bots {
 
   // ---------- Criação / remoção ----------
 
-  criar(x, z) {
+  criar(x, z, nome) {
     const grupo = new THREE.Group();
     grupo.rotation.order = 'YXZ';
     const mats = {
@@ -162,16 +201,17 @@ class Bots {
       pele: new THREE.MeshLambertMaterial({ color: 0xe0b48a }),
       perna: new THREE.MeshLambertMaterial({ color: 0x2c3328 }),
     };
-    const parte = (w, h, d, mat, y, cabeca = false) => {
+    const parte = (w, h, d, mat, y, cabeca = false, regiao = 'tronco') => {
       const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
       m.position.y = y;
       m.castShadow = true;
       m.userData.cabeca = cabeca;
+      m.userData.regiao = cabeca ? 'cabeca' : regiao;
       grupo.add(m);
       return m;
     };
     const malhas = [
-      parte(0.5, 0.65, 0.3, mats.perna, 0.33),
+      parte(0.5, 0.65, 0.3, mats.perna, 0.33, false, 'pernas'),
       parte(0.62, 0.62, 0.36, mats.roupa, 0.96),
       parte(0.34, 0.34, 0.34, mats.pele, 1.42, true),
     ];
@@ -182,9 +222,11 @@ class Bots {
     const capacete = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.14, 0.38), mats.colete);
     capacete.position.y = 1.64;
     capacete.userData.cabeca = true;
+    capacete.userData.regiao = 'cabeca';
     grupo.add(capacete);
     malhas.push(colete, capacete);
     colete.userData.cabeca = false;
+    colete.userData.regiao = 'tronco';
 
     // Arma + clarão do cano
     const arma = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.09, 0.5), new THREE.MeshLambertMaterial({ color: 0x1a1a1a }));
@@ -198,12 +240,14 @@ class Bots {
     grupo.position.set(x, 0, z);
     this.scene.add(grupo);
 
+    const nv = this.nv;
     const bot = {
-      grupo, mats, malhas, arma, clarao, flashArma: 0,
+      nome: nome || 'Bot', armaNome: ARMAS_BOTS[Math.floor(Math.random() * ARMAS_BOTS.length)],
+      grupo, mats, malhas, arma, clarao, flashArma: 0, tOuvir: 0,
       vida: this.vidaBot, flash: 0,
       ve: false, tVisao: Math.random() * 0.2,       // vê o jogador agora?
       reacao: 0,                                      // tempo vendo o jogador
-      reacaoMax: this.reacaoMin + Math.random() * this.reacaoExtra,
+      reacaoMax: nv.reacaoMin + Math.random() * nv.reacaoExtra,
       espera: 0,                                      // tempo até o próximo tiro
       memoria: 0, ultima: new THREE.Vector3(),       // última posição conhecida do jogador
       destino: null, rota: null, metaRota: null,
@@ -217,7 +261,8 @@ class Bots {
 
   limpar() {
     for (const b of this.lista.concat(this.mortos)) this.scene.remove(b.grupo);
-    this.lista = []; this.malhas = []; this.mortos = [];
+    this.lista = []; this.malhas = []; this.mortos = []; this.fila = [];
+    this.respawnAtivo = false;
     for (const t of this.tracos) { t.linha.visible = false; t.t = 0; }
   }
 
@@ -227,14 +272,38 @@ class Bots {
     const pontos = this.mapa.spawnsBots.slice().sort(() => Math.random() - 0.5);
     for (let i = 0; i < n; i++) {
       const [x, z] = pontos[i % pontos.length];
-      const b = this.criar(x, z);
+      const b = this.criar(x, z, NOMES_BOTS[i % NOMES_BOTS.length]);
       b.grupo.rotation.y = 0;                    // olhando para o sul (para o jogador)
       b.espera = 0.6 + Math.random() * 0.8;
     }
   }
 
-  // Dano vindo do jogador; retorna true se o bot morreu
-  causarDano(bot, dano) {
+  // Mata-mata: n bots que reaparecem depois de mortos
+  iniciarMataMata(n) {
+    this.limpar();
+    this.respawnAtivo = true;
+    for (let i = 0; i < n; i++) {
+      const [x, z] = this._pontoDeNascimento();
+      const b = this.criar(x, z, NOMES_BOTS[i % NOMES_BOTS.length]);
+      b.espera = 0.6 + Math.random() * 0.8;
+    }
+  }
+
+  // Ponto de nascimento longe do jogador e fora da vista dele (cai para o mais distante se não houver)
+  _pontoDeNascimento() {
+    const j = this.jogador;
+    const olho = new THREE.Vector3(j.pos.x, j.pos.y + 1.5, j.pos.z);
+    const livres = this.mapa.spawnsBots.filter(([x, z]) => {
+      if (Math.hypot(x - j.pos.x, z - j.pos.z) < 16) return false;
+      return !this._livre(new THREE.Vector3(x, 1.5, z), olho);     // só pontos SEM linha de visão com o jogador
+    });
+    const pool = livres.length ? livres : this.mapa.spawnsBots.slice()
+      .sort((a, b) => Math.hypot(b[0] - j.pos.x, b[1] - j.pos.z) - Math.hypot(a[0] - j.pos.x, a[1] - j.pos.z)).slice(0, 3);
+    return pool[Math.floor(Math.random() * pool.length)];
+  }
+
+  // Dano vindo do jogador; retorna true se o bot morreu. `info` = { arma, cabeca } (kill feed).
+  causarDano(bot, dano, info) {
     bot.vida -= dano;
     bot.flash = 0.1;
     for (const m of Object.values(bot.mats)) m.emissive.set(0xffffff);
@@ -249,18 +318,37 @@ class Bots {
     bot.tMorte = 0;
     bot.clarao.visible = false;
     this.mortos.push(bot);
+    this.jogador.registrarAbate();
+    if (info && this.hud) this.hud.matou('Você', bot.nome, info.arma, info.cabeca);
     if (this.aoAbate) this.aoAbate(bot);
+    if (this.respawnAtivo) this.fila.push({ t: this.tempoRespawn, nome: bot.nome });
     return true;
+  }
+
+  // ---------- Audição ----------
+
+  // Um tiro (ou golpe) do jogador: bots dentro do alcance que não o veem vão investigar o local
+  ouvirTiro(x, z, raio) {
+    if (!this.ativo) return;
+    const alcance = raio * this.nv.audicao;
+    for (const b of this.lista) {
+      const d = Math.hypot(x - b.grupo.position.x, z - b.grupo.position.z);
+      if (d > alcance || b.ve) continue;
+      const erro = Math.min(5, d * 0.12);               // quanto mais longe, menos exata a direção
+      b.memoria = 5;
+      b.ultima.set(x + (Math.random() - 0.5) * 2 * erro, 0, z + (Math.random() - 0.5) * 2 * erro);
+      b.destino = null; b.rota = null;
+    }
   }
 
   // ---------- Percepção ----------
 
   // Campo de visão (120°) + linha de visão livre. Muito perto, ele "ouve" mesmo pelas costas.
   _enxerga(b, dx, dz, dist) {
-    if (dist > this.alcanceVisao) return false;
+    if (dist > this.nv.alcanceVisao) return false;
     const g = b.grupo;
     const fx = -Math.sin(g.rotation.y), fz = -Math.cos(g.rotation.y);
-    if (dist > 6 && (dx * fx + dz * fz) / dist < 0.5) return false;
+    if (dist > 6 && (dx * fx + dz * fz) / dist < this.nv.fov) return false;
     const j = this.jogador;
     this._a.set(g.position.x, 1.5, g.position.z);
     this._b.set(j.pos.x, j.pos.y + j.altura * 0.6, j.pos.z);
@@ -343,7 +431,8 @@ class Bots {
 
     // Precisão: cai com a distância; piora se o jogador se move rápido ou está agachado
     const vel = Math.hypot(j.vel.x, j.vel.z);
-    let chance = Math.min(0.5, Math.max(0.12, 0.62 - dist * 0.02));
+    const nv = this.nv;
+    let chance = Math.min(nv.chanceMax, Math.max(nv.chanceMin, nv.chance - dist * nv.chanceDist));
     if (vel > 3) chance *= 0.65;
     if (j.agachado) chance *= 0.8;
     let acertou = Math.random() < chance;
@@ -360,7 +449,7 @@ class Bots {
     this._traco(origem, alvo);
     b.clarao.visible = true;
     b.flashArma = 0.05;
-    if (acertou) j.receberDano(this.danoBot, b.grupo.position.x, b.grupo.position.z);
+    if (acertou) j.receberDano(nv.dano, b.grupo.position.x, b.grupo.position.z, { nome: b.nome, arma: b.armaNome });
   }
 
   // ---------- Laço ----------
@@ -374,6 +463,19 @@ class Bots {
     if (b.tVisao <= 0) {                 // checa visão ~6x por segundo (mais leve)
       b.tVisao = 0.15 + Math.random() * 0.1;
       b.ve = j.vivo && this._enxerga(b, dx, dz, dist);
+    }
+
+    // Passos: correr perto é audível; andar devagar ou agachado só muito de perto
+    b.tOuvir -= dt;
+    if (!b.ve && b.tOuvir <= 0 && j.vivo) {
+      b.tOuvir = 0.4;
+      const velJ = Math.hypot(j.vel.x, j.vel.z);
+      const raio = (velJ > 3.8 ? 10 : velJ > 0.5 ? 2.5 : 0) * this.nv.audicao;
+      if (dist < raio) {
+        b.memoria = 3;
+        b.ultima.set(j.pos.x + (Math.random() - 0.5) * 3, 0, j.pos.z + (Math.random() - 0.5) * 3);
+        b.destino = null; b.rota = null;
+      }
     }
 
     let vx = 0, vz = 0, olharX = null, olharZ = null;
@@ -395,10 +497,10 @@ class Bots {
       if (b.tStrafe <= 0) { b.tStrafe = 0.8 + Math.random() * 1.4; b.strafe = Math.random() < 0.5 ? -1 : 1; }
       const nx = dx / dist, nz = dz / dist;
       const avanco = dist > 14 ? 1 : dist < 6 ? -1 : 0;
-      vx = (-nz * b.strafe * 0.7 + nx * avanco) * 2.6;
-      vz = (nx * b.strafe * 0.7 + nz * avanco) * 2.6;
+      vx = (-nz * b.strafe * 0.7 + nx * avanco) * this.nv.velocidade;
+      vz = (nx * b.strafe * 0.7 + nz * avanco) * this.nv.velocidade;
       if (b.reacao >= b.reacaoMax && b.espera <= 0) {
-        b.espera = 0.9 + Math.random() * 0.6;
+        b.espera = this.nv.intervaloMin + Math.random() * this.nv.intervaloExtra;
         this._atirar(b, dist);
       }
     } else if (b.memoria > 0) {
@@ -463,6 +565,17 @@ class Bots {
 
     for (const t of this.tracos) {
       if (t.t > 0) { t.t -= dt; if (t.t <= 0) t.linha.visible = false; }
+    }
+
+    // Mata-mata: reaparecimento dos bots mortos
+    if (this.respawnAtivo && this.ativo) {
+      for (let i = this.fila.length - 1; i >= 0; i--) {
+        this.fila[i].t -= dt;
+        if (this.fila[i].t > 0) continue;
+        const [x, z] = this._pontoDeNascimento();
+        this.criar(x, z, this.fila[i].nome).espera = 0.8;
+        this.fila.splice(i, 1);
+      }
     }
   }
 }
