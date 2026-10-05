@@ -1,38 +1,116 @@
-/* Estilos básicos: tela, HUD e menu */
-html, body { margin: 0; height: 100%; overflow: hidden; background: #111; font-family: system-ui, Arial, sans-serif; }
+/* Zona Cinza: estilos da tela, HUD, loja e menu (visual militar urbano) */
+:root {
+  --ambar: #e0a33a;
+  --verde: #4fb06b;
+  --vermelho: #e04b3a;
+  --painel: rgba(14, 17, 20, .62);
+  --texto: #ecebe6;
+}
+html, body { margin: 0; height: 100%; overflow: hidden; background: #111; color: var(--texto);
+  font-family: "Segoe UI", system-ui, Arial, sans-serif; }
 #jogo { display: block; width: 100%; height: 100%; }
 .oculto { display: none !important; }
+kbd { background: #2b2f33; border: 1px solid #5a6068; border-bottom-width: 2px; border-radius: 4px;
+  padding: 1px 6px; font-size: 12px; font-family: inherit; color: var(--texto); }
 
-#hud { position: fixed; inset: 0; pointer-events: none; color: #fff; text-shadow: 0 0 4px #000; }
+#hud { position: fixed; inset: 0; pointer-events: none; text-shadow: 0 0 4px #000; }
+#hud small { display: block; font-size: 10px; letter-spacing: 2px; opacity: .75; }
+#hud b { font-weight: 700; }
 
-/* Mira central: quatro traços com espaço no meio */
-#mira { position: absolute; left: 50%; top: 50%; width: 0; height: 0; }
-#mira span { position: absolute; background: #0f0; box-shadow: 0 0 2px #000; }
-#mira span:nth-child(1) { width: 2px; height: 8px; left: -1px; top: -13px; }
-#mira span:nth-child(2) { width: 2px; height: 8px; left: -1px; top: 5px; }
-#mira span:nth-child(3) { width: 8px; height: 2px; left: -13px; top: -1px; }
-#mira span:nth-child(4) { width: 8px; height: 2px; left: 5px; top: -1px; }
-#mira.tiro { transform: scale(1.5); }
+/* Mira dinâmica: os quatro traços se afastam conforme a dispersão (--abre, definida pelo jogo) */
+#mira { position: absolute; left: 50%; top: 50%; width: 0; height: 0; --abre: 5px; }
+#mira span { position: absolute; background: #7dff9a; box-shadow: 0 0 2px #000; }
+#mira span:nth-child(1) { width: 2px; height: 8px; left: -1px; top: calc(-8px - var(--abre)); }
+#mira span:nth-child(2) { width: 2px; height: 8px; left: -1px; top: var(--abre); }
+#mira span:nth-child(3) { width: 8px; height: 2px; top: -1px; left: calc(-8px - var(--abre)); }
+#mira span:nth-child(4) { width: 8px; height: 2px; top: -1px; left: var(--abre); }
 
-/* X vermelho ao acertar um alvo */
-#marcador-acerto { position: absolute; left: 50%; top: 50%; width: 18px; height: 18px; margin: -9px 0 0 -9px;
-  opacity: 0; transition: opacity .15s; background:
-  linear-gradient(45deg, transparent 45%, #f33 45%, #f33 55%, transparent 55%),
-  linear-gradient(-45deg, transparent 45%, #f33 45%, #f33 55%, transparent 55%); }
+/* X ao acertar: branco no corpo, vermelho na cabeça */
+#marcador-acerto { position: absolute; left: 50%; top: 50%; width: 22px; height: 22px; margin: -11px 0 0 -11px;
+  opacity: 0; transition: opacity .15s; --cor: #fff; background:
+  linear-gradient(45deg, transparent 44%, var(--cor) 44%, var(--cor) 56%, transparent 56%),
+  linear-gradient(-45deg, transparent 44%, var(--cor) 44%, var(--cor) 56%, transparent 56%); }
+#marcador-acerto.cabeca { --cor: #ff3b30; }
 #marcador-acerto.ativo { opacity: 1; transition: none; }
 
-#hud-vida, #hud-municao { position: absolute; bottom: 24px; padding: 8px 16px; background: rgba(0,0,0,.45); border-radius: 6px; }
-#hud-vida { left: 24px; }
-#hud-municao { right: 24px; text-align: right; }
-#hud small { display: block; font-size: 11px; letter-spacing: 2px; opacity: .8; }
-#hud b { font-size: 36px; }
-#hud em { font-style: normal; opacity: .6; font-size: 24px; }
-#hud-municao.vazia b { color: #f55; }
-#hud-alvos { position: absolute; top: 16px; right: 20px; font-size: 14px; }
+/* Topo: placar | cronômetro | placar */
+#hud-topo { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); display: flex; align-items: stretch; gap: 3px; }
+#hud-topo .eq, #topo-centro { background: var(--painel); padding: 6px 18px; text-align: center; min-width: 70px; }
+#hud-topo .eq b { font-size: 26px; }
+#hud-topo .jog { border-bottom: 3px solid var(--verde); border-radius: 6px 0 0 6px; }
+#hud-topo .ini { border-bottom: 3px solid var(--vermelho); border-radius: 0 6px 6px 0; }
+#topo-centro { min-width: 120px; border-bottom: 3px solid var(--ambar); }
+#topo-centro b { font-size: 28px; letter-spacing: 2px; font-variant-numeric: tabular-nums; }
+#hud-topo[data-estado="preparacao"] #topo-centro { border-bottom-color: #6fb6e8; }
+#hud-topo[data-estado="preparacao"] #tempo { color: #6fb6e8; }
+#hud-topo.urgente #tempo { color: var(--vermelho); animation: piscar 1s steps(2) infinite; }
+@keyframes piscar { 50% { opacity: .4; } }
+#hud-restantes { position: absolute; top: 84px; left: 50%; transform: translateX(-50%); font-size: 12px; letter-spacing: 2px; opacity: .85; }
+#hud-restantes b { font-size: 14px; }
+#dica { position: absolute; top: 108px; left: 50%; transform: translateX(-50%); background: var(--painel);
+  padding: 6px 16px; border-radius: 6px; font-size: 14px; border-left: 3px solid #6fb6e8; }
 
+/* Base: vida/colete, dinheiro, munição */
+#hud-vida, #hud-municao, #hud-dinheiro { position: absolute; background: var(--painel); border-radius: 6px; padding: 8px 16px; }
+#hud-vida { left: 24px; bottom: 24px; display: flex; gap: 22px; border-left: 3px solid var(--verde); }
+#hud-vida b { font-size: 34px; }
+#hud-vida .colete b { color: #7cc0f0; }
+#hud-vida.baixa b:first-of-type, #hud-vida.baixa > div:first-child b { color: var(--vermelho); }
+#hud-dinheiro { left: 24px; bottom: 100px; font-size: 18px; color: #9be07a; border-left: 3px solid #9be07a; }
+#hud-dinheiro b { font-size: 22px; }
+#hud-municao { right: 24px; bottom: 24px; text-align: right; border-right: 3px solid var(--ambar); }
+#hud-municao b { font-size: 36px; }
+#hud-municao em { font-style: normal; opacity: .6; font-size: 24px; }
+#hud-municao.vazia b { color: var(--vermelho); }
+
+/* Aviso grande no topo (início de rodada, ganhos) */
+#aviso { position: absolute; left: 0; right: 0; top: 22%; text-align: center; font-size: 32px; font-weight: 700;
+  letter-spacing: 6px; opacity: 0; transition: opacity .4s; }
+#aviso.ativo { opacity: 1; }
+
+/* Resultado */
+#banner { position: absolute; left: 0; right: 0; top: 32%; text-align: center; padding: 18px 0;
+  background: linear-gradient(90deg, transparent, rgba(0,0,0,.65) 20%, rgba(0,0,0,.65) 80%, transparent); }
+#banner h2 { margin: 0; font-size: 56px; letter-spacing: 10px; }
+#banner p { margin: 6px 0 0; font-size: 18px; letter-spacing: 1px; opacity: .9; }
+#banner.vitoria h2 { color: var(--verde); }
+#banner.derrota h2 { color: var(--vermelho); }
+
+/* Feedback ao levar dano: borda vermelha + seta apontando para o atirador */
+#dano-flash { position: absolute; inset: 0; opacity: 0;
+  background: radial-gradient(ellipse at center, transparent 45%, rgba(200,0,0,.75) 100%); }
+#dano-dir { position: absolute; left: 50%; top: 50%; width: 0; height: 0; opacity: 0; }
+#dano-dir::after { content: ''; position: absolute; left: -35px; top: -160px; width: 70px; height: 14px;
+  border-radius: 7px; background: #f33; box-shadow: 0 0 12px #f00; }
+
+/* Com a loja aberta, some a dica e o aviso para não sobrepor */
+#hud.loja-aberta #dica, #hud.loja-aberta #aviso { display: none; }
+
+/* Loja */
+#loja { position: absolute; left: 50%; top: 47%; transform: translate(-50%, -50%); width: 440px; max-width: 92vw;
+  background: rgba(14, 17, 20, .9); border: 1px solid #3a4046; border-top: 3px solid var(--ambar);
+  border-radius: 8px; padding: 14px 20px 12px; }
+#loja h3 { margin: 0 0 4px; letter-spacing: 6px; }
+#loja-saldo { color: #9be07a; margin-bottom: 8px; }
+#loja ul { list-style: none; margin: 0; padding: 0; }
+#loja li { display: flex; align-items: center; gap: 12px; padding: 9px 4px; border-bottom: 1px solid #2c3136; }
+#loja li .nome { flex: 1; }
+#loja li .nome small { opacity: .6; letter-spacing: 0; font-size: 12px; margin-top: 2px; }
+#loja li .preco { color: #9be07a; font-weight: 700; min-width: 56px; text-align: right; }
+#loja li .estado { font-size: 11px; letter-spacing: 1px; color: var(--ambar); }
+#loja li.indisponivel .nome, #loja li.indisponivel .preco { opacity: .45; }
+#loja-msg { min-height: 20px; margin: 8px 0 2px; font-size: 14px; }
+#loja-msg.ok { color: var(--verde); }
+#loja-msg.erro { color: var(--vermelho); }
+#loja .rodape { margin: 4px 0 0; font-size: 12px; opacity: .7; }
+
+/* Menu */
 #menu { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
-  background: rgba(0,0,0,.75); color: #eee; text-align: center; }
-#menu h1 { margin: 0; letter-spacing: 6px; }
-#menu button { margin: 20px 0; padding: 12px 28px; font-size: 18px; cursor: pointer; border: 0; border-radius: 6px; background: #3a8; color: #fff; }
-#menu ul { list-style: none; padding: 0; line-height: 2; }
-kbd { background: #333; border: 1px solid #666; border-radius: 4px; padding: 1px 6px; font-size: 13px; }
+  background: radial-gradient(ellipse at center, rgba(20,24,28,.78), rgba(8,10,12,.92)); text-align: center; padding: 0 16px; }
+#menu h1 { margin: 0; letter-spacing: 12px; font-size: 44px; }
+#menu-sub { margin: 8px 0 0; color: var(--ambar); letter-spacing: 3px; font-size: 14px; text-transform: uppercase; }
+#menu button { margin: 20px 0 14px; padding: 12px 34px; font-size: 18px; cursor: pointer; border: 0; border-radius: 6px;
+  background: var(--ambar); color: #1a1408; font-weight: 700; letter-spacing: 1px; }
+#menu button:hover { filter: brightness(1.1); }
+#menu .objetivo { margin: 0 0 12px; max-width: 560px; line-height: 1.5; opacity: .9; font-size: 14px; }
+#menu ul { list-style: none; padding: 0; margin: 0; line-height: 2.1; font-size: 14px; }

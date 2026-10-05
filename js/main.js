@@ -4,6 +4,9 @@
 (function () {
   const canvas = document.getElementById('jogo');
   const menu = document.getElementById('menu');
+  const menuTitulo = document.getElementById('menu-titulo');
+  const menuSub = document.getElementById('menu-sub');
+  const btnJogar = document.getElementById('btn-jogar');
 
   // Renderizador leve: sem antialias, pixel ratio limitado, sombras suaves simples
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
@@ -11,9 +14,10 @@
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFShadowMap;
 
+  // Céu de fim de tarde com névoa na mesma cor (esconde o limite do mapa e poupa processamento)
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x9fb8d0);
-  scene.fog = new THREE.Fog(0x9fb8d0, 25, 70);
+  scene.background = new THREE.Color(0xc2b8a8);
+  scene.fog = new THREE.Fog(0xc2b8a8, 28, 75);
 
   const camera = new THREE.PerspectiveCamera(75, 1, 0.05, 100);
   scene.add(camera);   // necessário para a arma (filha da câmera) aparecer
@@ -21,17 +25,17 @@
   // Módulos
   const hud = new HUD();
   const mapa = new Mapa(scene);
-  const alvos = new Alvos(scene);
   const jogador = new Jogador(camera, mapa, canvas);
-  const arma = new Pistola(camera, mapa, alvos, hud);
-  jogador.arma = arma;
-  arma.jogador = jogador;
-
-  // Alvos de teste espalhados pelo mapa
-  [[-14, -16], [-3, -14], [10, -16], [16, -8], [-16, 2], [4, 6],
-   [-8, 14], [16, 14], [0, -4], [-17, 15]].forEach(([x, z]) => alvos.criar(x, z));
-  hud.atualizarAlvos(alvos.lista.length);
+  const bots = new Bots(scene, mapa, jogador);
+  const armas = new Armas(camera, mapa, bots, hud);
+  const partida = new Partida(jogador, bots, armas, hud);
+  const loja = new Loja(partida, armas, jogador, hud);
+  jogador.arma = armas;
+  jogador.hud = hud;
+  armas.jogador = jogador;
+  partida.loja = loja;
   hud.atualizarVida(jogador.vida);
+  hud.atualizarColete(jogador.armadura);
 
   function redimensionar() {
     renderer.setSize(innerWidth, innerHeight, false);
@@ -41,17 +45,50 @@
   addEventListener('resize', redimensionar);
   redimensionar();
 
-  // Pointer Lock: o menu aparece quando o mouse é liberado (Esc)
-  document.getElementById('btn-jogar').addEventListener('click', () => canvas.requestPointerLock());
-  canvas.addEventListener('click', () => { if (!jogador.ativo) canvas.requestPointerLock(); });
-  document.addEventListener('pointerlockchange', () => {
-    jogador.ativo = document.pointerLockElement === canvas;
-    menu.classList.toggle('oculto', jogador.ativo);
-    hud.mostrar(jogador.ativo);
-    if (!jogador.ativo) jogador.atirando = false;
-  });
+  // Liga/desliga o jogo e atualiza o menu (início, pausa ou fim de partida)
+  function definirAtivo(ativo) {
+    jogador.ativo = ativo;
+    if (!ativo) {
+      jogador.atirando = false;
+      loja.fechar();
+      if (partida.estado === 'fim') {
+        const venceu = partida.placar.jogador > partida.placar.bots;
+        menuTitulo.textContent = venceu ? 'PARTIDA VENCIDA' : 'PARTIDA PERDIDA';
+        menuSub.textContent = 'Placar final ' + partida.placar.jogador + ' x ' + partida.placar.bots;
+        btnJogar.textContent = 'Jogar novamente';
+      } else if (partida.estado === 'parado') {
+        menuTitulo.textContent = 'ZONA CINZA';
+        menuSub.textContent = 'Pátio Industrial — você contra os bots';
+        btnJogar.textContent = 'Clique para jogar';
+      } else {
+        menuTitulo.textContent = 'PAUSADO';
+        menuSub.textContent = 'Rodada ' + partida.rodada + ' · placar ' + partida.placar.jogador + ' x ' + partida.placar.bots;
+        btnJogar.textContent = 'Continuar';
+      }
+    }
+    menu.classList.toggle('oculto', ativo);
+    hud.mostrar(ativo);
+  }
 
-  window.jogo = { jogador, arma, alvos, mapa, camera };   // útil para depurar no console
+  // Fim da partida: solta o mouse e mostra o menu com o resultado
+  partida.aoFim = () => {
+    document.exitPointerLock();
+    definirAtivo(false);   // garante a tela mesmo se o Pointer Lock não estiver ativo
+  };
+
+  // Pointer Lock: o menu aparece quando o mouse é liberado (Esc)
+  function iniciar() {
+    if (partida.estado === 'parado' || partida.estado === 'fim') partida.novaPartida();
+    canvas.requestPointerLock();
+  }
+  btnJogar.addEventListener('click', iniciar);
+  canvas.addEventListener('click', () => { if (!jogador.ativo) iniciar(); });
+  document.addEventListener('pointerlockchange', () => {
+    definirAtivo(document.pointerLockElement === canvas);
+  });
+  definirAtivo(false);
+
+  window.jogo = { jogador, armas, bots, mapa, camera, partida, loja, definirAtivo };   // útil para depurar no console
 
   // Laço principal
   let ultimo = performance.now();
@@ -61,9 +98,10 @@
     ultimo = agora;
     if (jogador.ativo) {          // pausado quando o mouse está liberado
       jogador.atualizar(dt);
-      arma.atualizar(dt);
-      alvos.atualizar(dt);
-      hud.atualizarAlvos(alvos.lista.length);
+      armas.atualizar(dt);
+      bots.atualizar(dt);
+      partida.atualizar(dt);
+      if (loja.aberta) loja.atualizar();
     }
     renderer.render(scene, camera);
   }

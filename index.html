@@ -3,42 +3,79 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Jogo Tático - Etapa 1</title>
+  <title>Zona Cinza - Etapa 3</title>
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
   <canvas id="jogo"></canvas>
 
-  <!-- HUD (interface) -->
+  <!-- HUD (interface durante o jogo) -->
   <div id="hud" class="oculto">
+    <div id="dano-flash"></div>
+    <div id="dano-dir"></div>
     <div id="mira"><span></span><span></span><span></span><span></span></div>
     <div id="marcador-acerto"></div>
-    <div id="hud-vida"><small>VIDA</small><b id="vida-valor">100</b></div>
+    <div id="aviso"></div>
+
+    <!-- Topo: placar, cronômetro e fase -->
+    <div id="hud-topo" data-estado="parado">
+      <div class="eq jog"><small>VOCÊ</small><b id="placar-jog">0</b></div>
+      <div id="topo-centro"><b id="tempo">0:00</b><small id="fase"></small></div>
+      <div class="eq ini"><small>INIMIGOS</small><b id="placar-ini">0</b></div>
+    </div>
+    <div id="hud-restantes">Inimigos vivos: <b id="info-inimigos">0</b></div>
+    <div id="dica">PREPARAÇÃO &mdash; aperte <kbd>B</kbd> para abrir a loja</div>
+
+    <!-- Base: vida/colete, dinheiro e munição -->
+    <div id="hud-vida">
+      <div><small>VIDA</small><b id="vida-valor">100</b></div>
+      <div class="colete"><small>COLETE</small><b id="colete-valor">0</b></div>
+    </div>
+    <div id="hud-dinheiro">$ <b id="dinheiro">1000</b></div>
     <div id="hud-municao"><small id="municao-estado">PISTOLA</small><b><span id="municao-atual">12</span><em> / </em><span id="municao-reserva">36</span></b></div>
-    <div id="hud-alvos">Alvos: <span id="alvos-restantes">0</span></div>
+
+    <!-- Resultado da rodada / partida -->
+    <div id="banner" class="oculto"><h2 id="banner-titulo"></h2><p id="banner-sub"></p></div>
+
+    <!-- Loja (tecla B, só na preparação) -->
+    <div id="loja" class="oculto">
+      <h3>LOJA</h3>
+      <div id="loja-saldo">Saldo: $<b id="loja-saldo-valor">0</b></div>
+      <ul>
+        <li data-item="rifle"><kbd>1</kbd><span class="nome">Fuzil Tático<small>automático · 30 tiros · 90 de reserva</small></span><span class="estado"></span><span class="preco"></span></li>
+        <li data-item="municao"><kbd>2</kbd><span class="nome"><span id="loja-municao-nome">Munição</span><small>completa a reserva da arma na mão</small></span><span class="estado"></span><span class="preco"></span></li>
+        <li data-item="colete"><kbd>3</kbd><span class="nome">Colete<small>absorve metade do dano</small></span><span class="estado"></span><span class="preco"></span></li>
+      </ul>
+      <p id="loja-msg"></p>
+      <p class="rodape">Aperte <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> para comprar &middot; <kbd>B</kbd> fecha a loja</p>
+    </div>
   </div>
 
-  <!-- Tela inicial / pausa -->
+  <!-- Tela inicial / pausa / fim de partida -->
   <div id="menu">
-    <h1>JOGO TÁTICO</h1>
-    <p>Etapa 1 &mdash; mapa de teste</p>
+    <h1 id="menu-titulo">ZONA CINZA</h1>
+    <p id="menu-sub">Pátio Industrial &mdash; você contra os bots</p>
     <button id="btn-jogar">Clique para jogar</button>
+    <p class="objetivo">Vença <b>5 rodadas</b>. Em cada rodada, elimine todos os inimigos antes do tempo acabar.<br>
+      Você ganha dinheiro por abates e pelo resultado; use na loja durante a preparação.</p>
     <ul>
-      <li><kbd>W A S D</kbd> mover</li>
-      <li><kbd>Mouse</kbd> olhar &nbsp; <kbd>Botão esq.</kbd> atirar</li>
-      <li><kbd>Espaço</kbd> pular &nbsp; <kbd>Ctrl</kbd>/<kbd>C</kbd> agachar</li>
-      <li><kbd>Shift</kbd> andar devagar &nbsp; <kbd>R</kbd> recarregar</li>
-      <li><kbd>Esc</kbd> pausar</li>
+      <li><kbd>W A S D</kbd> mover &nbsp; <kbd>Espaço</kbd> pular &nbsp; <kbd>Ctrl</kbd>/<kbd>C</kbd> agachar &nbsp; <kbd>Shift</kbd> andar devagar</li>
+      <li><kbd>Mouse</kbd> mirar &nbsp; <kbd>Botão esq.</kbd> atirar (segure no fuzil) &nbsp; <kbd>R</kbd> recarregar</li>
+      <li><kbd>1</kbd> pistola &nbsp; <kbd>2</kbd> fuzil &nbsp; <kbd>B</kbd> abrir/fechar a loja (só na preparação)</li>
+      <li>Na loja: <kbd>1</kbd> fuzil &nbsp; <kbd>2</kbd> munição &nbsp; <kbd>3</kbd> colete</li>
+      <li><kbd>Esc</kbd> pausar &nbsp;&middot;&nbsp; tiro na cabeça causa dano triplo; correr e atirar em sequência diminui a precisão</li>
     </ul>
   </div>
 
   <!-- Three.js (CDN cdnjs, versão global) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="js/mapa.js"></script>
-  <script src="js/alvos.js"></script>
+  <script src="js/bots.js"></script>
   <script src="js/armas.js"></script>
   <script src="js/jogador.js"></script>
   <script src="js/hud.js"></script>
+  <script src="js/rodadas.js"></script>
+  <script src="js/loja.js"></script>
   <script src="js/main.js"></script>
 </body>
 </html>
