@@ -13,6 +13,10 @@ class Mapa {
     this.nome = 'Pátio Industrial';
 
     this.spawnJogador = { x: 0, z: 16 };
+    // Pontos de reaparecimento do jogador no mata-mata (yaw = para onde olha)
+    this.spawnsJogador = [
+      { x: 0, z: 16, yaw: 0 }, { x: -16, z: 14, yaw: 0.4 }, { x: 16, z: 12, yaw: -0.4 }, { x: -8, z: 17, yaw: 0 },
+    ];
     this.spawnsBots = [
       [-16, -16], [-6, -17], [-2, -17], [5, -17], [12, -17], [15, -16], [-17, -9], [8, -14],
     ];

@@ -60,9 +60,24 @@ class Partida {
     this.placar = { jogador: 0, bots: 0 };
     this.dinheiro = this.dinheiroInicial;
     this.jogador.armadura = 0;
+    this.jogador.zerarPlacar();
     this.armas.perderEquipamento();
     this.jogador.vivo = true;        // evita que a "morte" anterior apague o equipamento de novo
+    this.hud.definirModo('rodadas');
     this.iniciarRodada();
+  }
+
+  // Volta ao menu sem manter nada da partida
+  encerrar() {
+    this.estado = 'parado';
+    this.bots.ativo = false;
+    this.bots.limpar();
+    if (this.loja) this.loja.fechar();
+    this.hud.esconderBanner();
+  }
+
+  resumo() {
+    return 'Rodada ' + this.rodada + ' · placar ' + this.placar.jogador + ' x ' + this.placar.bots;
   }
 
   // Quantidade de bots cresce aos poucos: 3, 3, 4, 4, 5, 5, 6...
