@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Zona Cinza - Etapa 3</title>
+  <title>Zona Cinza</title>
   <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -13,41 +13,46 @@
   <div id="hud" class="oculto">
     <div id="dano-flash"></div>
     <div id="dano-dir"></div>
+
+    <!-- Luneta da sniper (aparece com o botão direito) -->
+    <div id="luneta" class="oculto"><div class="aro"></div><div class="fio h"></div><div class="fio v"></div><span id="luneta-zoom">3x</span></div>
+
     <div id="mira"><span></span><span></span><span></span><span></span></div>
     <div id="marcador-acerto"></div>
     <div id="aviso"></div>
 
     <!-- Topo: placar, cronômetro e fase -->
     <div id="hud-topo" data-estado="parado">
-      <div class="eq jog"><small>VOCÊ</small><b id="placar-jog">0</b></div>
+      <div class="eq jog"><small id="rotulo-jog">VOCÊ</small><b id="placar-jog">0</b></div>
       <div id="topo-centro"><b id="tempo">0:00</b><small id="fase"></small></div>
-      <div class="eq ini"><small>INIMIGOS</small><b id="placar-ini">0</b></div>
+      <div class="eq ini"><small id="rotulo-ini">INIMIGOS</small><b id="placar-ini">0</b></div>
     </div>
     <div id="hud-restantes">Inimigos vivos: <b id="info-inimigos">0</b></div>
     <div id="dica">PREPARAÇÃO &mdash; aperte <kbd>B</kbd> para abrir a loja</div>
 
-    <!-- Base: vida/colete, dinheiro e munição -->
+    <!-- Canto: abates/mortes (esquerda) e kill feed (direita) -->
+    <div id="hud-kd">ABATES <b>0</b> &nbsp; MORTES <b>0</b></div>
+    <div id="kill-feed"></div>
+
+    <!-- Base: vida/colete, dinheiro, armas e munição -->
     <div id="hud-vida">
       <div><small>VIDA</small><b id="vida-valor">100</b></div>
       <div class="colete"><small>COLETE</small><b id="colete-valor">0</b></div>
     </div>
     <div id="hud-dinheiro">$ <b id="dinheiro">1000</b></div>
+    <div id="hud-armas"></div>
     <div id="hud-municao"><small id="municao-estado">PISTOLA</small><b><span id="municao-atual">12</span><em> / </em><span id="municao-reserva">36</span></b></div>
 
-    <!-- Resultado da rodada / partida -->
+    <!-- Resultado da rodada / partida / morte -->
     <div id="banner" class="oculto"><h2 id="banner-titulo"></h2><p id="banner-sub"></p></div>
 
-    <!-- Loja (tecla B, só na preparação) -->
+    <!-- Loja (tecla B, só na preparação do modo Rodadas) -->
     <div id="loja" class="oculto">
       <h3>LOJA</h3>
       <div id="loja-saldo">Saldo: $<b id="loja-saldo-valor">0</b></div>
-      <ul>
-        <li data-item="rifle"><kbd>1</kbd><span class="nome">Fuzil Tático<small>automático · 30 tiros · 90 de reserva</small></span><span class="estado"></span><span class="preco"></span></li>
-        <li data-item="municao"><kbd>2</kbd><span class="nome"><span id="loja-municao-nome">Munição</span><small>completa a reserva da arma na mão</small></span><span class="estado"></span><span class="preco"></span></li>
-        <li data-item="colete"><kbd>3</kbd><span class="nome">Colete<small>absorve metade do dano</small></span><span class="estado"></span><span class="preco"></span></li>
-      </ul>
+      <ul id="loja-lista"></ul>
       <p id="loja-msg"></p>
-      <p class="rodape">Aperte <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> para comprar &middot; <kbd>B</kbd> fecha a loja</p>
+      <p class="rodape">Aperte <kbd>1</kbd> a <kbd>5</kbd> para comprar &middot; <kbd>B</kbd> fecha a loja</p>
     </div>
   </div>
 
@@ -55,19 +60,40 @@
   <div id="menu">
     <h1 id="menu-titulo">ZONA CINZA</h1>
     <p id="menu-sub">Pátio Industrial &mdash; você contra os bots</p>
+
+    <!-- Escolha de modo e dificuldade (só antes de começar uma partida) -->
+    <div id="menu-opcoes">
+      <div class="grupo">
+        <small>MODO</small>
+        <div class="opcoes" id="opcoes-modo">
+          <button data-modo="rodadas">Rodadas com loja</button>
+          <button data-modo="mata">Mata-mata</button>
+        </div>
+        <p id="desc-modo"></p>
+      </div>
+      <div class="grupo">
+        <small>DIFICULDADE DOS BOTS</small>
+        <div class="opcoes" id="opcoes-dif">
+          <button data-dif="facil">Fácil</button>
+          <button data-dif="medio">Médio</button>
+          <button data-dif="dificil">Difícil</button>
+        </div>
+      </div>
+    </div>
+
     <button id="btn-jogar">Clique para jogar</button>
-    <p class="objetivo">Vença <b>5 rodadas</b>. Em cada rodada, elimine todos os inimigos antes do tempo acabar.<br>
-      Você ganha dinheiro por abates e pelo resultado; use na loja durante a preparação.</p>
+    <button id="btn-sair" class="oculto">Encerrar partida</button>
+
     <ul>
-      <li><kbd>W A S D</kbd> mover &nbsp; <kbd>Espaço</kbd> pular &nbsp; <kbd>Ctrl</kbd>/<kbd>C</kbd> agachar &nbsp; <kbd>Shift</kbd> andar devagar</li>
-      <li><kbd>Mouse</kbd> mirar &nbsp; <kbd>Botão esq.</kbd> atirar (segure no fuzil) &nbsp; <kbd>R</kbd> recarregar</li>
-      <li><kbd>1</kbd> pistola &nbsp; <kbd>2</kbd> fuzil &nbsp; <kbd>B</kbd> abrir/fechar a loja (só na preparação)</li>
-      <li>Na loja: <kbd>1</kbd> fuzil &nbsp; <kbd>2</kbd> munição &nbsp; <kbd>3</kbd> colete</li>
-      <li><kbd>Esc</kbd> pausar &nbsp;&middot;&nbsp; tiro na cabeça causa dano triplo; correr e atirar em sequência diminui a precisão</li>
+      <li><kbd>W A S D</kbd> mover &nbsp; <kbd>Espaço</kbd> pular &nbsp; <kbd>Ctrl</kbd>/<kbd>C</kbd> agachar &nbsp; <kbd>Shift</kbd> andar devagar (silencioso)</li>
+      <li><kbd>Mouse</kbd> mirar &nbsp; <kbd>Botão esq.</kbd> atirar (segure nas automáticas) &nbsp; <kbd>Botão dir.</kbd> luneta da sniper (clique de novo: mais zoom) &nbsp; <kbd>R</kbd> recarregar</li>
+      <li><kbd>1</kbd> pistola &nbsp; <kbd>2</kbd> SMG &nbsp; <kbd>3</kbd> fuzil &nbsp; <kbd>4</kbd> sniper &nbsp; <kbd>5</kbd> faca &nbsp; <kbd>Roda do mouse</kbd> trocar de arma</li>
+      <li>Modo Rodadas: <kbd>B</kbd> abre/fecha a loja na preparação; dentro dela <kbd>1</kbd> a <kbd>5</kbd> compram</li>
+      <li><kbd>Esc</kbd> pausar &nbsp;&middot;&nbsp; cabeça causa mais dano, pernas menos; correr, pular e rajadas diminuem a precisão</li>
     </ul>
   </div>
 
-  <!-- Three.js (CDN cdnjs, versão global) -->
+  <!-- Three.js (CDN cdnjs, versão global). Scripts comuns, sem módulos: abre por duplo clique. -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="js/mapa.js"></script>
   <script src="js/bots.js"></script>
@@ -75,6 +101,7 @@
   <script src="js/jogador.js"></script>
   <script src="js/hud.js"></script>
   <script src="js/rodadas.js"></script>
+  <script src="js/mata.js"></script>
   <script src="js/loja.js"></script>
   <script src="js/main.js"></script>
 </body>

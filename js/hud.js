@@ -18,6 +18,8 @@ class HUD {
       banner: $('banner'), bannerTitulo: $('banner-titulo'), bannerSub: $('banner-sub'),
       danoFlash: $('dano-flash'), danoDir: $('dano-dir'),
       dica: $('dica'),
+      feed: $('kill-feed'), kd: $('hud-kd'), luneta: $('luneta'), lunetaZoom: $('luneta-zoom'),
+      armas: $('hud-armas'), rotuloJog: $('rotulo-jog'), rotuloIni: $('rotulo-ini'),
     };
     this._timerAcerto = null;
     this._timerAviso = null;
@@ -33,11 +35,54 @@ class HUD {
 
   atualizarColete(v) { this.el.colete.textContent = Math.round(v); }
 
+  // atual === null: arma sem munição (faca)
   atualizarMunicao(atual, reserva, recarregando, nome) {
-    this.el.atual.textContent = atual;
+    const faca = atual === null;
+    this.el.atual.textContent = faca ? '—' : atual;
     this.el.reserva.textContent = reserva;
+    this.el.caixaMunicao.classList.toggle('sem-reserva', faca);
     this.el.estado.textContent = recarregando ? 'RECARREGANDO...' : nome;
     this.el.caixaMunicao.classList.toggle('vazia', atual === 0);
+  }
+
+  // Barra de armas: número da tecla, nome e destaque da arma na mão
+  atualizarArmas(lista) {
+    this.el.armas.innerHTML = '';
+    for (const a of lista) {
+      const d = document.createElement('div');
+      d.className = 'slot' + (a.ativo ? ' ativo' : '') + (a.possui ? '' : ' sem');
+      d.textContent = a.tecla + ' ' + a.nome;
+      this.el.armas.appendChild(d);
+    }
+  }
+
+  // Contador de abates e mortes
+  atualizarKD(abates, mortes) {
+    this.el.kd.innerHTML = 'ABATES <b>' + abates + '</b> &nbsp; MORTES <b>' + mortes + '</b>';
+  }
+
+  // Kill feed: mostra "quem [arma] quem" no canto, some depois de alguns segundos
+  matou(autor, vitima, arma, cabeca) {
+    const l = document.createElement('div');
+    const euAutor = autor === 'Você', euVitima = vitima === 'Você';
+    l.className = 'abate' + (euAutor || euVitima ? ' meu' : '');
+    const nome = (t, eu) => '<span class="' + (eu ? 'eu' : '') + '">' + t + '</span>';
+    l.innerHTML = nome(autor, euAutor) + ' <i>' + arma + (cabeca ? ' ◎' : '') + '</i> ' + nome(vitima, euVitima);
+    this.el.feed.prepend(l);
+    while (this.el.feed.children.length > 5) this.el.feed.lastChild.remove();
+    setTimeout(() => l.remove(), 5000);
+  }
+
+  // Luneta da sniper: moldura escura com o nível de zoom
+  luneta(ligada, zoom) {
+    this.el.luneta.classList.toggle('oculto', !ligada);
+    this.el.lunetaZoom.textContent = zoom + 'x';
+    this.el.raiz.classList.toggle('com-luneta', ligada);
+  }
+
+  // Modo de jogo: 'rodadas' ou 'mata' (esconde o que não se aplica)
+  definirModo(modo) {
+    this.el.raiz.classList.toggle('modo-mata', modo === 'mata');
   }
 
   atualizarDinheiro(v) { this.el.dinheiro.textContent = v; }
@@ -56,7 +101,9 @@ class HUD {
   }
 
   // Mira dinâmica: afasta os quatro traços conforme a dispersão da arma (em pixels)
-  atualizarMira(px) {
+  // `esconder` oculta a mira (luneta e faca têm a própria)
+  atualizarMira(px, esconder) {
+    this.el.mira.classList.toggle('oculto', !!esconder);
     px = Math.round(px);
     if (px === this._miraPx) return;
     this._miraPx = px;

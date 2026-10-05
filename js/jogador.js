@@ -37,6 +37,10 @@ class Jogador {
     this.vivo = true;
     this.hud = null;                 // definidos depois (main.js)
     this.aoMorrer = null;
+    this.abates = 0;                 // placar pessoal (vale nos dois modos)
+    this.mortes = 0;
+    this.protecao = 0;               // segundos de proteção após reaparecer (não leva dano)
+    this.escalaSensibilidade = 1;    // diminui com o zoom da luneta
     this.agachado = false;
     this.teclas = {};
     this.atirando = false;           // botão do mouse pressionado
@@ -52,30 +56,40 @@ class Jogador {
       if (e.code === 'Space' || e.code.startsWith('Control')) e.preventDefault();
       if (!this.ativo || !this.arma || this.lojaAberta) return;
       if (e.code === 'KeyR') this.arma.recarregar();
-      if (e.code === 'Digit1') this.arma.trocar('pistola');
-      if (e.code === 'Digit2') this.arma.trocar('rifle');
+      // Teclas 1 a 5: pistola, SMG, fuzil, sniper e faca
+      const slot = { Digit1: 'pistola', Digit2: 'smg', Digit3: 'rifle', Digit4: 'sniper', Digit5: 'faca' }[e.code];
+      if (slot) this.arma.trocar(slot);
     });
     addEventListener('keyup', e => { this.teclas[e.code] = false; });
 
     addEventListener('mousemove', e => {
       if (!this.ativo) return;
-      this.yaw -= e.movementX * this.sensibilidade;
-      this.pitch -= e.movementY * this.sensibilidade;
+      const sens = this.sensibilidade * this.escalaSensibilidade;
+      this.yaw -= e.movementX * sens;
+      this.pitch -= e.movementY * sens;
       this.pitch = Math.max(-1.5, Math.min(1.5, this.pitch));
     });
     addEventListener('mousedown', e => {
-      if (!this.ativo || e.button !== 0) return;
+      if (!this.ativo) return;
+      if (e.button === 2) { if (this.arma) this.arma.alternarMira(); return; }   // luneta da sniper
+      if (e.button !== 0) return;
       this.atirando = true;
-      if (this.arma) this.arma.atirar();   // pistola semiautomática: um tiro por clique
+      if (this.arma) this.arma.atirar();   // um tiro por clique; as automáticas continuam no laço
     });
+    // Roda do mouse: arma anterior/seguinte
+    addEventListener('wheel', e => {
+      if (!this.ativo || !this.arma || this.lojaAberta || !e.deltaY) return;
+      this.arma.trocarRelativo(e.deltaY > 0 ? 1 : -1);
+    }, { passive: true });
+    canvas.addEventListener('contextmenu', e => e.preventDefault());
     addEventListener('mouseup', () => { this.atirando = false; });
     addEventListener('blur', () => { this.teclas = {}; this.atirando = false; });
   }
 
   // Dano de um inimigo; (ox, oz) é a posição de quem atirou (para o indicador de direção).
-  // O colete absorve metade do dano (enquanto durar).
-  receberDano(dano, ox, oz) {
-    if (!this.vivo) return;
+  // `info` = { nome, arma } de quem atirou, para o kill feed. O colete absorve metade do dano.
+  receberDano(dano, ox, oz, info) {
+    if (!this.vivo || this.protecao > 0) return;
     if (this.armadura > 0) {
       const absorvido = Math.min(this.armadura, dano * 0.5);
       this.armadura -= absorvido;
@@ -94,6 +108,11 @@ class Jogador {
     if (this.vida <= 0) {
       this.vivo = false;
       this.atirando = false;
+      this.mortes++;
+      if (this.hud) {
+        this.hud.atualizarKD(this.abates, this.mortes);
+        if (info) this.hud.matou(info.nome, 'Você', info.arma, false);
+      }
       if (this.aoMorrer) this.aoMorrer();
     }
   }
@@ -103,13 +122,25 @@ class Jogador {
     if (this.hud) this.hud.atualizarColete(this.armadura);
   }
 
+  // Soma um abate no placar pessoal
+  registrarAbate() {
+    this.abates++;
+    if (this.hud) this.hud.atualizarKD(this.abates, this.mortes);
+  }
+
+  zerarPlacar() {
+    this.abates = 0; this.mortes = 0;
+    if (this.hud) this.hud.atualizarKD(0, 0);
+  }
+
   // Posiciona o jogador no início da rodada, com vida cheia. O colete só é mantido
   // se o jogador sobreviveu (quem morre perde o equipamento; ver partida).
-  reiniciar() {
-    const sp = this.mapa.spawnJogador;
+  reiniciar(spawn) {
+    const sp = spawn || this.mapa.spawnJogador;
     this.pos.set(sp.x, 0, sp.z);
+    this.yaw = sp.yaw || 0;
     this.vel.set(0, 0, 0);
-    this.yaw = 0; this.pitch = 0; this.recuo = 0;
+    this.pitch = 0; this.recuo = 0;
     this.vida = this.vidaMax;
     this.vivo = true;
     this.agachado = false;
@@ -144,6 +175,7 @@ class Jogador {
       return;
     }
     const t = this.teclas;
+    if (this.protecao > 0) this.protecao -= dt;
 
     // --- Agachar: só levanta se houver espaço acima ---
     const querAgachar = !!(t.ControlLeft || t.ControlRight || t.KeyC);
@@ -164,7 +196,8 @@ class Jogador {
     if (len > 0) { dx /= len; dz /= len; }
 
     const lento = t.ShiftLeft || t.ShiftRight || this.agachado;
-    const vMax = lento ? this.velocidadeLenta : this.velocidadeNormal;
+    let vMax = lento ? this.velocidadeLenta : this.velocidadeNormal;
+    if (this.arma) vMax *= this.arma.atual.def.mobilidade * (this.arma.mirando ? 0.6 : 1);   // arma pesada/luneta: mais lento
     // Aceleração suave (menor no ar)
     const acel = (this.noChao ? 12 : 3) * dt;
     this.vel.x += (dx * vMax - this.vel.x) * Math.min(1, acel);

@@ -113,4 +113,51 @@ kbd { background: #2b2f33; border: 1px solid #5a6068; border-bottom-width: 2px; 
   background: var(--ambar); color: #1a1408; font-weight: 700; letter-spacing: 1px; }
 #menu button:hover { filter: brightness(1.1); }
 #menu .objetivo { margin: 0 0 12px; max-width: 560px; line-height: 1.5; opacity: .9; font-size: 14px; }
-#menu ul { list-style: none; padding: 0; margin: 0; line-height: 2.1; font-size: 14px; }
+#menu ul { list-style: none; padding: 0; margin: 0; line-height: 2.1; font-size: 14px; max-width: 760px; }
+
+/* Escolha de modo e dificuldade no menu */
+#menu-opcoes { display: flex; gap: 28px; flex-wrap: wrap; justify-content: center; margin: 18px 0 0; }
+#menu-opcoes .grupo { max-width: 330px; }
+#menu-opcoes small { display: block; letter-spacing: 3px; font-size: 11px; opacity: .7; margin-bottom: 6px; }
+#menu .opcoes { display: flex; justify-content: center; }
+#menu .opcoes button { margin: 0; padding: 8px 14px; font-size: 14px; font-weight: 600; letter-spacing: 0;
+  background: #2b2f33; color: var(--texto); border: 1px solid #444b52; border-radius: 0; }
+#menu .opcoes button:first-child { border-radius: 6px 0 0 6px; }
+#menu .opcoes button:last-child { border-radius: 0 6px 6px 0; }
+#menu .opcoes button.sel { background: var(--ambar); color: #1a1408; border-color: var(--ambar); }
+#desc-modo { margin: 8px 0 0; font-size: 12px; opacity: .75; line-height: 1.4; min-height: 34px; }
+#btn-sair { margin: 0 0 12px !important; padding: 6px 16px !important; font-size: 13px !important;
+  background: transparent !important; color: var(--texto) !important; border: 1px solid #5a6068 !important; font-weight: 400 !important; }
+
+/* Abates/mortes e kill feed */
+#hud-kd { position: absolute; top: 14px; left: 20px; background: var(--painel); padding: 6px 12px; border-radius: 6px;
+  font-size: 11px; letter-spacing: 2px; border-left: 3px solid var(--ambar); }
+#hud-kd b { font-size: 18px; margin-left: 4px; }
+#kill-feed { position: absolute; top: 14px; right: 20px; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+#kill-feed .abate { background: var(--painel); padding: 4px 10px; border-radius: 4px; font-size: 14px; animation: entra .15s ease-out; }
+#kill-feed .abate.meu { background: rgba(90, 60, 10, .75); outline: 1px solid var(--ambar); }
+#kill-feed .abate i { font-style: normal; opacity: .65; font-size: 11px; letter-spacing: 1px; margin: 0 6px; }
+#kill-feed .eu { color: #7dff9a; font-weight: 700; }
+@keyframes entra { from { transform: translateX(30px); opacity: 0; } }
+
+/* Barra de armas */
+#hud-armas { position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%); display: flex; gap: 4px; }
+#hud-armas .slot { background: var(--painel); padding: 4px 9px; border-radius: 4px; font-size: 11px; letter-spacing: 1px; opacity: .85; }
+#hud-armas .slot.ativo { background: rgba(224, 163, 58, .85); color: #1a1408; font-weight: 700; opacity: 1; }
+#hud-armas .slot.sem { opacity: .3; }
+#hud-municao.sem-reserva em, #hud-municao.sem-reserva span:last-child { display: none; }
+
+/* Luneta da sniper: tela escura com um círculo de visão e fios finos */
+#luneta { position: absolute; inset: 0; }
+#luneta .aro { position: absolute; left: 50%; top: 50%; width: 82vmin; height: 82vmin; margin: -41vmin 0 0 -41vmin;
+  border-radius: 50%; box-shadow: 0 0 0 100vmax #000, inset 0 0 40px 6px rgba(0,0,0,.7); }
+#luneta .fio { position: absolute; background: #000; }
+#luneta .fio.h { left: calc(50% - 41vmin); width: 82vmin; top: 50%; height: 2px; margin-top: -1px; }
+#luneta .fio.v { top: calc(50% - 41vmin); height: 82vmin; left: 50%; width: 2px; margin-left: -1px; }
+#luneta-zoom { position: absolute; left: calc(50% + 28vmin); top: calc(50% + 34vmin); font-size: 14px; letter-spacing: 2px; opacity: .8; }
+#hud.com-luneta #hud-vida, #hud.com-luneta #hud-dinheiro { opacity: .6; }
+
+/* Modo mata-mata: esconde o que só vale em rodadas */
+#hud.modo-mata #hud-dinheiro, #hud.modo-mata #dica, #hud.modo-mata #hud-restantes,
+#hud.modo-mata #hud-topo .eq { display: none; }
+#hud.modo-mata #hud-topo #topo-centro { border-radius: 6px; }
