@@ -1,43 +1,90 @@
 // ===== Armas =====
-// Duas armas (pistola e fuzil tático) com atributos próprios: dano, cadência, pente,
-// recarga, recuo e dispersão. A precisão piora ao se mover, pular e atirar em
-// sequência, e se recupera aos poucos ao parar. Tiros usam raycast contra o mapa e os
-// inimigos: a primeira coisa atingida vale, então paredes e caixas bloqueiam tudo.
+// Cinco armas: pistola, SMG, fuzil, sniper (com luneta e zoom) e faca. Cada uma tem
+// dano, cadência, pente, recarga, padrão de recuo (spray), precisão e ruído próprios.
+//  - A precisão piora ao se mover, pular e atirar em rajada, e volta aos poucos ao parar.
+//  - O dano depende da região atingida (cabeça, tronco, pernas) e cai com a distância.
+//  - Tiros usam raycast contra o mapa e os inimigos: o primeiro objeto atingido vale,
+//    então paredes e caixas bloqueiam tudo.
 
+// Padrão de recuo (spray): devolve uma função i -> [subida, deriva lateral] em radianos,
+// onde i é o número do tiro na rajada. A mira sobe mais nos primeiros tiros e depois
+// balança de lado, como nos jogos táticos (dá para "aprender" e compensar o spray).
+function padraoRecuo(sobe, deriva, ate) {
+  return (i) => {
+    const f = Math.min(i, ate) / ate;
+    const subida = sobe * (i < ate ? 0.6 + 0.8 * f : 0.9);
+    const lado = Math.sin(i * 0.85) * deriva * (0.2 + f);
+    return [subida, lado];
+  };
+}
+
+// Atributos das armas (todas as distâncias em metros, ângulos em radianos)
 const DEFS_ARMAS = {
   pistola: {
-    id: 'pistola', nome: 'PISTOLA', auto: false,
+    id: 'pistola', nome: 'PISTOLA', tipo: 'arma', auto: false, tecla: 1,
     dano: 25, intervalo: 0.22, pente: 12, reservaMax: 36, recarga: 1.4,
-    recuo: 0.020, recuoLateral: 0.003,           // sobe a mira (rad) e desvia um pouco para os lados
-    dispBase: 0.004,                              // dispersão parada e sem atirar (rad)
-    dispMov: 0.028,                               // acréscimo ao correr
-    dispTiro: 0.009, dispMax: 0.05,               // acréscimo por tiro seguido e teto total
-    esfriar: 0.08,                                // quanto da dispersão por tiro some por segundo
+    alcance: 25, queda: 0.02, danoMin: 0.5,          // dano total até `alcance`; depois cai `queda` por metro
+    mCabeca: 3, mobilidade: 1.0, ruido: 28,
+    padrao: padraoRecuo(0.018, 0.003, 4),
+    dispBase: 0.004, dispMov: 0.028, dispTiro: 0.009, dispMax: 0.05, esfriar: 0.08,
     preco: 0,
   },
+  smg: {
+    id: 'smg', nome: 'SMG', tipo: 'arma', auto: true, tecla: 2,
+    dano: 18, intervalo: 0.07, pente: 25, reservaMax: 100, recarga: 1.9,
+    alcance: 14, queda: 0.035, danoMin: 0.4,
+    mCabeca: 2.5, mobilidade: 1.05, ruido: 30,
+    padrao: padraoRecuo(0.006, 0.004, 12),
+    dispBase: 0.005, dispMov: 0.03, dispTiro: 0.005, dispMax: 0.07, esfriar: 0.07,
+    preco: 1200,
+  },
   rifle: {
-    id: 'rifle', nome: 'FUZIL TÁTICO', auto: true,
-    dano: 30, intervalo: 0.1, pente: 30, reservaMax: 90, recarga: 2.4,
-    recuo: 0.010, recuoLateral: 0.006,
-    dispBase: 0.003, dispMov: 0.050,
-    dispTiro: 0.006, dispMax: 0.085,
-    esfriar: 0.06,
+    id: 'rifle', nome: 'FUZIL TÁTICO', tipo: 'arma', auto: true, tecla: 3,
+    dano: 28, intervalo: 0.1, pente: 30, reservaMax: 90, recarga: 2.4,
+    alcance: 40, queda: 0.01, danoMin: 0.6,
+    mCabeca: 3.5, mobilidade: 0.95, ruido: 38,
+    padrao: padraoRecuo(0.011, 0.006, 10),
+    dispBase: 0.003, dispMov: 0.05, dispTiro: 0.006, dispMax: 0.085, esfriar: 0.06,
     preco: 1800,
   },
+  sniper: {
+    id: 'sniper', nome: 'SNIPER', tipo: 'arma', auto: false, tecla: 4,
+    dano: 100, intervalo: 1.25, pente: 5, reservaMax: 20, recarga: 3.0,
+    alcance: 90, queda: 0.0, danoMin: 1,
+    mCabeca: 1.5, mobilidade: 0.85, ruido: 60,
+    padrao: () => [0.05, 0.004],                      // coice forte a cada disparo
+    dispBase: 0.04,                                   // sem luneta: muito impreciso
+    dispLuneta: 0.0004,                               // com luneta e parado: quase perfeito
+    dispMov: 0.06, dispTiro: 0.0, dispMax: 0.09, esfriar: 0.1,
+    luneta: true, zooms: [3, 8],                      // dois níveis de zoom (botão direito)
+    preco: 2800,
+  },
+  faca: {
+    id: 'faca', nome: 'FACA', tipo: 'faca', auto: false, tecla: 5,
+    dano: 40, intervalo: 0.55, alcance: 2.4,          // aqui `alcance` é o alcance do golpe
+    mCabeca: 1, mobilidade: 1.12, ruido: 4,
+    traicao: 3,                                       // golpe pelas costas: dano x3
+    preco: 0,
+  },
 };
+
+// Ordem usada pela roda do mouse
+const ORDEM_ARMAS = ['pistola', 'smg', 'rifle', 'sniper', 'faca'];
 
 class Armas {
   constructor(camera, mapa, inimigos, hud) {
     this.camera = camera;
     this.mapa = mapa;
-    this.inimigos = inimigos;       // precisa ter .malhas e .causarDano(alvo, dano)
+    this.inimigos = inimigos;       // precisa ter .malhas, .causarDano(alvo, dano, info) e .ouvirTiro(x, z, raio)
     this.hud = hud;
     this.jogador = null;            // definido depois (recuo da câmera, velocidade, etc.)
     this.travada = false;           // true na preparação e no resultado: não atira
+    this.fovNormal = camera.fov;
 
     this.armas = {};
-    for (const id of Object.keys(DEFS_ARMAS)) this.armas[id] = this._novaArma(DEFS_ARMAS[id]);
+    for (const id of ORDEM_ARMAS) this.armas[id] = this._novaArma(DEFS_ARMAS[id]);
     this.armas.pistola.possui = true;
+    this.armas.faca.possui = true;
     this.atual = this.armas.pistola;
 
     // Estado de uso
@@ -49,9 +96,11 @@ class Armas {
     this.calor = 0;                 // dispersão acumulada por tiros seguidos
     this.movimento = 0;             // dispersão causada pelo movimento (suavizada)
     this.desdeTiro = 9;             // segundos desde o último tiro
+    this.indiceRajada = 0;          // posição no padrão de recuo
+    this.nivelMira = 0;             // 0 = sem luneta; 1.. = nível de zoom da sniper
+    this.golpe = 0;                 // animação do golpe de faca
 
     this.raycaster = new THREE.Raycaster();
-    this._dir = new THREE.Vector3();
     this._dir2 = new THREE.Vector3();
     this._lado = new THREE.Vector3();
     this._cima = new THREE.Vector3();
@@ -64,11 +113,12 @@ class Armas {
   }
 
   _novaArma(def) {
-    return { def, possui: false, municao: def.pente, reserva: def.reservaMax, modelo: null };
+    return { def, possui: false, municao: def.pente || 0, reserva: def.reservaMax || 0, modelo: null };
   }
 
   get temRifle() { return this.armas.rifle.possui; }
   get emRajada() { return this.desdeTiro < 0.25; }     // atirando em sequência (recuo e dispersão acumulam)
+  get mirando() { return this.nivelMira > 0; }
 
   // ---------- Modelos (caixas simples presas à câmera) ----------
 
@@ -80,46 +130,73 @@ class Armas {
       g.add(b);
       return b;
     };
-    const clarao = () => {
-      const g = new THREE.Group();
+    const clarao = (g, x, y, z) => {
+      const c = new THREE.Group();
       const m = new THREE.MeshBasicMaterial({ color: 0xffdd66 });
-      g.add(new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.09, 0.03), m));
-      const cruz = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.025, 0.02), m);
-      const cruz2 = new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.2, 0.02), m);
-      g.add(cruz, cruz2);
-      g.visible = false;
-      return g;
+      c.add(new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.09, 0.03), m));
+      c.add(new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.025, 0.02), m));
+      c.add(new THREE.Mesh(new THREE.BoxGeometry(0.025, 0.2, 0.02), m));
+      c.position.set(x, y, z);
+      c.visible = false;
+      g.add(c);
+      return c;
     };
+    const preto = mat(0x222222), grafite = mat(0x2a2d31), cinza = mat(0x555a60), escuro = mat(0x1c1e21);
 
     // Pistola
     const p = new THREE.Group();
-    caixa(p, 0.06, 0.07, 0.28, mat(0x555a60), 0, 0, 0);                   // ferrolho
-    caixa(p, 0.05, 0.14, 0.07, mat(0x222222), 0, -0.1, 0.08).rotation.x = -0.2;   // empunhadura
-    const penteP = caixa(p, 0.04, 0.09, 0.05, mat(0x111111), 0, -0.16, 0.09);
-    const clP = clarao(); clP.position.set(0, 0, -0.18); p.add(clP);
-    this.armas.pistola.modelo = { grupo: p, pente: penteP, clarao: clP, pos: new THREE.Vector3(0.2, -0.2, -0.45), kick: 0.06 };
+    caixa(p, 0.06, 0.07, 0.28, cinza, 0, 0, 0);
+    caixa(p, 0.05, 0.14, 0.07, preto, 0, -0.1, 0.08).rotation.x = -0.2;
+    this.armas.pistola.modelo = { grupo: p, pente: caixa(p, 0.04, 0.09, 0.05, mat(0x111111), 0, -0.16, 0.09),
+      clarao: clarao(p, 0, 0, -0.18), pos: new THREE.Vector3(0.2, -0.2, -0.45), kick: 0.06 };
+
+    // SMG: compacta, carregador longo e fino
+    const s = new THREE.Group();
+    caixa(s, 0.065, 0.09, 0.36, grafite, 0, 0, 0);
+    caixa(s, 0.04, 0.04, 0.18, escuro, 0, 0.005, -0.26);
+    caixa(s, 0.045, 0.12, 0.07, preto, 0, -0.1, 0.1).rotation.x = -0.15;
+    caixa(s, 0.05, 0.08, 0.12, mat(0x3a3d42), 0, -0.005, 0.24);
+    this.armas.smg.modelo = { grupo: s, pente: caixa(s, 0.04, 0.2, 0.05, mat(0x1a1a1a), 0, -0.16, -0.06),
+      clarao: clarao(s, 0, 0.005, -0.38), pos: new THREE.Vector3(0.2, -0.21, -0.46), kick: 0.04 };
 
     // Fuzil
     const r = new THREE.Group();
-    caixa(r, 0.07, 0.1, 0.5, mat(0x2a2d31), 0, 0, 0);                      // corpo
-    caixa(r, 0.05, 0.05, 0.3, mat(0x1c1e21), 0, 0.01, -0.38);              // cano / guarda-mão
-    caixa(r, 0.06, 0.12, 0.2, mat(0x3a3d42), 0, -0.01, 0.34);              // coronha
-    caixa(r, 0.045, 0.14, 0.07, mat(0x222222), 0, -0.11, 0.1).rotation.x = -0.15;   // empunhadura
-    caixa(r, 0.04, 0.03, 0.14, mat(0x1c1e21), 0, 0.075, -0.05);            // mira
-    const penteR = caixa(r, 0.05, 0.17, 0.08, mat(0x1a1a1a), 0, -0.13, -0.08);
-    const clR = clarao(); clR.position.set(0, 0.01, -0.58); r.add(clR);
-    this.armas.rifle.modelo = { grupo: r, pente: penteR, clarao: clR, pos: new THREE.Vector3(0.2, -0.22, -0.5), kick: 0.05 };
+    caixa(r, 0.07, 0.1, 0.5, grafite, 0, 0, 0);
+    caixa(r, 0.05, 0.05, 0.3, escuro, 0, 0.01, -0.38);
+    caixa(r, 0.06, 0.12, 0.2, mat(0x3a3d42), 0, -0.01, 0.34);
+    caixa(r, 0.045, 0.14, 0.07, preto, 0, -0.11, 0.1).rotation.x = -0.15;
+    caixa(r, 0.04, 0.03, 0.14, escuro, 0, 0.075, -0.05);
+    this.armas.rifle.modelo = { grupo: r, pente: caixa(r, 0.05, 0.17, 0.08, mat(0x1a1a1a), 0, -0.13, -0.08),
+      clarao: clarao(r, 0, 0.01, -0.58), pos: new THREE.Vector3(0.2, -0.22, -0.5), kick: 0.05 };
+
+    // Sniper: cano longo, luneta e coronha
+    const n = new THREE.Group();
+    caixa(n, 0.06, 0.09, 0.62, mat(0x2f3a2a), 0, 0, 0);
+    caixa(n, 0.035, 0.035, 0.5, escuro, 0, 0.01, -0.55);
+    caixa(n, 0.06, 0.13, 0.26, mat(0x3a3d30), 0, -0.01, 0.4);
+    caixa(n, 0.045, 0.12, 0.07, preto, 0, -0.1, 0.12).rotation.x = -0.15;
+    const luneta = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.22, 10), escuro);
+    luneta.rotation.x = Math.PI / 2; luneta.position.set(0, 0.095, -0.05); n.add(luneta);
+    this.armas.sniper.modelo = { grupo: n, pente: caixa(n, 0.04, 0.08, 0.06, mat(0x1a1a1a), 0, -0.1, -0.08),
+      clarao: clarao(n, 0, 0.01, -0.82), pos: new THREE.Vector3(0.2, -0.22, -0.52), kick: 0.1 };
+
+    // Faca
+    const f = new THREE.Group();
+    caixa(f, 0.025, 0.06, 0.3, mat(0xc7ccd1), 0, 0, -0.17);          // lâmina
+    caixa(f, 0.04, 0.05, 0.12, preto, 0, 0, 0.04);                   // cabo
+    caixa(f, 0.07, 0.03, 0.025, cinza, 0, 0, -0.015);                // guarda
+    this.armas.faca.modelo = { grupo: f, pente: null, clarao: null, pos: new THREE.Vector3(0.22, -0.22, -0.4), kick: 0 };
 
     for (const a of Object.values(this.armas)) {
       a.modelo.grupo.position.copy(a.modelo.pos);
       a.modelo.grupo.visible = false;
       this.camera.add(a.modelo.grupo);
-      a.modelo.penteY = a.modelo.pente.position.y;
+      if (a.modelo.pente) a.modelo.penteY = a.modelo.pente.position.y;
     }
   }
 
   _mostrarModelo() {
-    for (const a of Object.values(this.armas)) a.modelo.grupo.visible = (a === this.atual);
+    for (const a of Object.values(this.armas)) a.modelo.grupo.visible = (a === this.atual) && !this.mirando;
   }
 
   // ---------- Efeitos: marcas de impacto, faíscas e rastro dos tiros ----------
@@ -166,29 +243,41 @@ class Armas {
     p.needsUpdate = true; r.l.visible = true; r.t = 0.05;
   }
 
-  // ---------- Precisão ----------
+  // ---------- Precisão e dano ----------
 
   // Dispersão atual em radianos (cone em volta da mira)
   dispersao() {
     const d = this.atual.def;
-    return Math.min(d.dispMax, d.dispBase + this.movimento + this.calor);
+    if (d.tipo === 'faca') return 0;
+    const base = (d.luneta && this.mirando) ? d.dispLuneta : d.dispBase;
+    return Math.min(d.dispMax, base + this.movimento + this.calor);
+  }
+
+  // Dano final: multiplicador da região (cabeça/tronco/pernas) x queda com a distância
+  calcularDano(def, regiao, dist) {
+    const m = regiao === 'cabeca' ? def.mCabeca : regiao === 'pernas' ? 0.75 : 1;
+    const f = dist > def.alcance ? Math.max(def.danoMin, 1 - (dist - def.alcance) * def.queda) : 1;
+    return def.dano * m * f;
   }
 
   // ---------- Ações ----------
 
-  // Dispara um tiro. Retorna true se atirou.
+  // Dispara (ou golpeia, no caso da faca). Retorna true se atirou.
   atirar() {
     const a = this.atual, d = a.def;
     if (this.travada || (this.jogador && !this.jogador.vivo)) return false;
     if (this.recarregando > 0 || this.espera > 0 || this.troca > 0) return false;
+    if (d.tipo === 'faca') return this._golpear();
     if (a.municao <= 0) { this.recarregar(); return false; }
 
     a.municao--;
+    // Padrão de recuo: continua de onde parou se ainda está em rajada; senão recomeça
+    this.indiceRajada = this.desdeTiro < 0.3 + d.intervalo ? this.indiceRajada + 1 : 0;
     this.desdeTiro = 0;
     this.espera = d.intervalo;
     this.kick = 1;
     this.flash = 0.045;
-    a.modelo.clarao.visible = true;
+    a.modelo.clarao.visible = !this.mirando;
     a.modelo.clarao.rotation.z = Math.random() * 3;
 
     // Direção do tiro: centro da tela + desvio aleatório dentro do cone de dispersão
@@ -202,9 +291,12 @@ class Armas {
     const dir = this.raycaster.ray.direction;
     dir.addScaledVector(this._lado, Math.cos(ang) * raio).addScaledVector(this._cima, Math.sin(ang) * raio).normalize();
 
-    // Recuo da câmera e aumento da dispersão
-    if (this.jogador) this.jogador.aplicarRecuo(d.recuo, (Math.random() - 0.5) * 2 * d.recuoLateral);
+    // Recuo em padrão (a câmera sobe e desvia) e aumento da dispersão
+    const [subida, lado] = d.padrao(this.indiceRajada);
+    if (this.jogador) this.jogador.aplicarRecuo(subida, lado);
     this.calor = Math.min(d.dispMax, this.calor + d.dispTiro);
+    if (d.luneta) this.nivelMira = 0, this._aplicarZoom(true);        // a sniper sai da luneta ao atirar
+    if (this.inimigos.ouvirTiro && this.jogador) this.inimigos.ouvirTiro(this.jogador.pos.x, this.jogador.pos.z, d.ruido);
 
     // O primeiro objeto atingido vale: parede/caixa protege o inimigo
     const objetos = this.mapa.malhas.concat(this.inimigos.malhas);
@@ -216,9 +308,10 @@ class Armas {
       const alvo = hit.object.userData.alvo;
       this._rastro(origem, hit.point);
       if (alvo) {
-        const cabeca = !!hit.object.userData.cabeca;
-        const morreu = this.inimigos.causarDano(alvo, cabeca ? d.dano * 3 : d.dano);
-        this.hud.marcarAcerto(morreu, cabeca);
+        const regiao = hit.object.userData.regiao || 'tronco';
+        const morreu = this.inimigos.causarDano(alvo, this.calcularDano(d, regiao, hit.distance),
+          { arma: d.nome, cabeca: regiao === 'cabeca' });
+        this.hud.marcarAcerto(morreu, regiao === 'cabeca');
       } else {
         this._impacto(hit.point);
       }
@@ -231,15 +324,62 @@ class Armas {
     return true;
   }
 
+  // Golpe de faca: acerta o que estiver na frente, a poucos metros; pelas costas causa mais dano
+  _golpear() {
+    const d = this.atual.def;
+    this.espera = d.intervalo;
+    this.golpe = 1;
+    if (this.inimigos.ouvirTiro && this.jogador) this.inimigos.ouvirTiro(this.jogador.pos.x, this.jogador.pos.z, d.ruido);
+    this.camera.updateMatrixWorld(true);
+    this.raycaster.setFromCamera({ x: 0, y: 0 }, this.camera);
+    this.raycaster.far = d.alcance;
+    const hits = this.raycaster.intersectObjects(this.mapa.malhas.concat(this.inimigos.malhas), false);
+    if (hits.length && hits[0].object.userData.alvo) {
+      const alvo = hits[0].object.userData.alvo;
+      // Pelas costas: o bot olha na mesma direção do golpe
+      const rot = alvo.grupo.rotation.y;
+      const costas = (-Math.sin(rot)) * this.raycaster.ray.direction.x + (-Math.cos(rot)) * this.raycaster.ray.direction.z > 0.5;
+      const dano = d.dano * (costas ? d.traicao : 1);
+      const morreu = this.inimigos.causarDano(alvo, dano, { arma: d.nome, cabeca: false });
+      this.hud.marcarAcerto(morreu, costas);
+    }
+    return true;
+  }
+
   recarregar() {
     const a = this.atual;
+    if (a.def.tipo === 'faca') return;
     if (this.recarregando > 0 || this.troca > 0) return;
     if (a.municao >= a.def.pente || a.reserva <= 0) return;
     this.recarregando = a.def.recarga;
+    this.nivelMira = 0; this._aplicarZoom(true);               // sai da luneta para recarregar
     this._atualizarHud();
   }
 
-  // Troca a arma na mão ('pistola' ou 'rifle'); só se o jogador a possui
+  // Botão direito: liga/desliga a luneta da sniper e alterna os níveis de zoom
+  alternarMira() {
+    const d = this.atual.def;
+    if (!d.luneta || this.recarregando > 0 || this.troca > 0 || this.travada) return;
+    this.nivelMira = (this.nivelMira + 1) % (d.zooms.length + 1);
+    this._aplicarZoom(false);
+  }
+
+  _aplicarZoom(imediato) {
+    const d = this.atual.def;
+    const zoom = this.nivelMira > 0 ? d.zooms[this.nivelMira - 1] : 1;
+    this.fovAlvo = this.fovNormal / zoom;
+    if (imediato) this._ajustarFov(this.fovAlvo);
+    this.hud.luneta(this.nivelMira > 0, zoom);
+    this._mostrarModelo();
+  }
+
+  _ajustarFov(f) {
+    this.camera.fov = f;
+    this.camera.updateProjectionMatrix();
+    if (this.jogador) this.jogador.escalaSensibilidade = f / this.fovNormal;   // zoom maior = mouse mais lento
+  }
+
+  // Troca a arma na mão pelo id; só se o jogador a possui
   trocar(id) {
     const nova = this.armas[id];
     if (!nova || !nova.possui || nova === this.atual) return false;
@@ -247,50 +387,72 @@ class Armas {
     this.recarregando = 0;
     this.troca = 0.3;
     this.calor = 0;
+    this.indiceRajada = 0;
+    this.nivelMira = 0;
+    this._aplicarZoom(true);
     this._mostrarModelo();
     this._atualizarHud();
     return true;
   }
 
-  // ----- Compras (a loja decide o preço; aqui só aplicamos o efeito) -----
+  // Roda do mouse: passa para a próxima/anterior arma que o jogador possui
+  trocarRelativo(passo) {
+    const lista = ORDEM_ARMAS.filter(id => this.armas[id].possui);
+    if (lista.length < 2) return;
+    const i = lista.indexOf(this.atual.def.id);
+    this.trocar(lista[(i + passo + lista.length) % lista.length]);
+  }
 
-  comprarRifle() {
-    const r = this.armas.rifle;
-    r.possui = true; r.municao = r.def.pente; r.reserva = r.def.reservaMax;
-    this.trocar('rifle');
+  // ----- Compras e equipamento -----
+
+  temArma(id) { return this.armas[id].possui; }
+
+  comprarArma(id) {
+    const a = this.armas[id];
+    a.possui = true; a.municao = a.def.pente; a.reserva = a.def.reservaMax;
+    this.trocar(id);
   }
 
   // true se a arma atual ainda pode receber munição
-  precisaMunicao() { return this.atual.reserva < this.atual.def.reservaMax; }
+  precisaMunicao() { return this.atual.def.tipo === 'arma' && this.atual.reserva < this.atual.def.reservaMax; }
 
   comprarMunicao() {
     this.atual.reserva = this.atual.def.reservaMax;
     this._atualizarHud();
   }
 
-  // ----- Estado entre rodadas -----
+  // Mata-mata: todas as armas liberadas e com munição cheia
+  liberarTodas() {
+    for (const a of Object.values(this.armas)) {
+      a.possui = true; a.municao = a.def.pente || 0; a.reserva = a.def.reservaMax || 0;
+    }
+    this.recarregando = 0; this.troca = 0; this.calor = 0; this.indiceRajada = 0;
+    this._atualizarHud();
+  }
 
   // Início de cada rodada: completa os pentes com a reserva. Garante munição mínima.
   prepararRodada() {
     const p = this.armas.pistola;
     if (p.municao + p.reserva === 0) p.reserva = 12;     // ajuda para quem ficou sem nada
     for (const a of Object.values(this.armas)) {
-      if (!a.possui) continue;
-      const falta = a.def.pente - a.municao;
-      const carga = Math.min(falta, a.reserva);
+      if (!a.possui || a.def.tipo === 'faca') continue;
+      const carga = Math.min(a.def.pente - a.municao, a.reserva);
       a.municao += carga; a.reserva -= carga;
     }
-    this.recarregando = 0; this.troca = 0; this.calor = 0;
+    this.recarregando = 0; this.troca = 0; this.calor = 0; this.indiceRajada = 0;
+    this.nivelMira = 0; this._aplicarZoom(true);
     this._atualizarHud();
   }
 
-  // Morreu ou nova partida: volta à pistola com munição inicial
+  // Morreu ou nova partida: volta à pistola e à faca, com munição inicial
   perderEquipamento() {
-    this.armas.rifle.possui = false;
-    const p = this.armas.pistola;
-    p.municao = p.def.pente; p.reserva = p.def.reservaMax;
-    this.atual = p;
-    this.recarregando = 0; this.troca = 0; this.calor = 0;
+    for (const a of Object.values(this.armas)) {
+      a.possui = (a.def.id === 'pistola' || a.def.id === 'faca');
+      a.municao = a.def.pente || 0; a.reserva = a.def.reservaMax || 0;
+    }
+    this.atual = this.armas.pistola;
+    this.recarregando = 0; this.troca = 0; this.calor = 0; this.indiceRajada = 0;
+    this.nivelMira = 0; this._aplicarZoom(true);
     this._mostrarModelo();
     this._atualizarHud();
   }
@@ -303,9 +465,14 @@ class Armas {
     if (this.troca > 0) this.troca -= dt;
     this.desdeTiro += dt;
 
+    // Zoom suave da luneta
+    if (this.fovAlvo !== undefined && Math.abs(this.camera.fov - this.fovAlvo) > 0.05) {
+      this._ajustarFov(this.camera.fov + (this.fovAlvo - this.camera.fov) * Math.min(1, dt * 14));
+    }
+
     // Dispersão pelo movimento: sobe rápido, desce devagar ("recupera ao parar")
     let alvoMov = 0;
-    if (j && j.vivo) {
+    if (j && j.vivo && d.tipo === 'arma') {
       const v = Math.min(1, Math.hypot(j.vel.x, j.vel.z) / j.velocidadeNormal);
       alvoMov = d.dispMov * v;
       if (!j.noChao) alvoMov = d.dispMov * 1.4;           // no ar: muito impreciso
@@ -313,15 +480,14 @@ class Armas {
     }
     const taxa = alvoMov > this.movimento ? 25 : 6;
     this.movimento += (alvoMov - this.movimento) * Math.min(1, taxa * dt);
-    // Dispersão dos tiros seguidos volta com o tempo
     // (em rajada esfria devagar, então a dispersão sobe; ao parar, volta em ~0,5 s)
-    this.calor = Math.max(0, this.calor - d.esfriar * dt * (this.emRajada ? 0.3 : 2.5));
-    this.hud.atualizarMira(this._miraEmPixels());
+    this.calor = Math.max(0, this.calor - (d.esfriar || 0) * dt * (this.emRajada ? 0.3 : 2.5));
+    this.hud.atualizarMira(this.mirando || d.tipo === 'faca' ? 0 : this._miraEmPixels(), d.tipo === 'faca' || this.mirando);
 
     // Clarão e efeitos
     if (this.flash > 0) {
       this.flash -= dt;
-      if (this.flash <= 0) a.modelo.clarao.visible = false;
+      if (this.flash <= 0 && a.modelo.clarao) a.modelo.clarao.visible = false;
     }
     for (const f of this.faiscas) {
       if (f.t > 0) { f.t -= dt; f.m.scale.setScalar(Math.max(0.01, f.t / 0.12)); if (f.t <= 0) f.m.visible = false; }
@@ -344,7 +510,8 @@ class Armas {
     // Animação do modelo
     const m = a.modelo;
     this.kick = Math.max(0, this.kick - dt * 8);
-    let baixo = 0, giro = 0, penteDesce = 0;
+    this.golpe = Math.max(0, this.golpe - dt * 5);
+    let baixo = 0, giro = 0, penteDesce = 0, girarZ = 0, avanco = 0;
     if (this.recarregando > 0) {
       const p = 1 - this.recarregando / d.recarga;          // 0..1 durante a recarga
       const curva = Math.sin(Math.min(1, p * 1.05) * Math.PI);
@@ -353,9 +520,15 @@ class Armas {
       penteDesce = (p > 0.25 && p < 0.6) ? 0.14 : 0;        // pente sai e volta
     }
     if (this.troca > 0) baixo += 0.4 * (this.troca / 0.3);   // arma sobe ao ser sacada
-    m.grupo.position.set(m.pos.x, m.pos.y - baixo, m.pos.z + this.kick * m.kick);
-    m.grupo.rotation.x = this.kick * 0.15 + giro;
-    m.pente.position.y = m.penteY - penteDesce;
+    if (this.golpe > 0) {                                    // golpe da faca: arco da direita para a esquerda
+      const t = 1 - this.golpe;
+      avanco = -0.25 * Math.sin(t * Math.PI);
+      girarZ = 1.1 - 2.2 * t;
+      giro = -0.5 * Math.sin(t * Math.PI);
+    }
+    m.grupo.position.set(m.pos.x - girarZ * 0.05, m.pos.y - baixo, m.pos.z + this.kick * m.kick + avanco);
+    m.grupo.rotation.set(this.kick * 0.15 + giro, 0, girarZ * 0.5);
+    if (m.pente) m.pente.position.y = m.penteY - penteDesce;
   }
 
   // Converte a dispersão (rad) em pixels de afastamento da mira
@@ -366,6 +539,9 @@ class Armas {
 
   _atualizarHud() {
     const a = this.atual;
-    this.hud.atualizarMunicao(a.municao, a.reserva, this.recarregando > 0, a.def.nome);
+    const faca = a.def.tipo === 'faca';
+    this.hud.atualizarMunicao(faca ? null : a.municao, a.reserva, this.recarregando > 0, a.def.nome);
+    this.hud.atualizarArmas(ORDEM_ARMAS.map(id => ({ tecla: DEFS_ARMAS[id].tecla, nome: DEFS_ARMAS[id].nome,
+      possui: this.armas[id].possui, ativo: this.armas[id] === a })));
   }
 }
